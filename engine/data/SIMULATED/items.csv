@@ -1,0 +1,11 @@
+﻿item,category,unit,shelf_life_days,unit_cost,unit_price,pack_size,base_source,min_qty,surplus_action
+طماطم,produce,kg,5,3.2,4.95,6,assumption,,markdown
+خيار,produce,kg,5,3.9,5.95,5,assumption,,markdown
+جزر,produce,kg,5,8.1,12.5,5,visit,,markdown
+فلفل بارد,produce,kg,5,5.8,8.95,5,assumption,,markdown
+موز,produce,kg,4,4.5,6.95,3,visit,,markdown
+صامولي,bakery,piece,3,0.4,1.0,20,visit,,reduce
+صامولي حليب,bakery,piece,3,0.5,1.5,10,visit,,reduce
+خبز مصري,bakery,bag,3,0.8,2.0,25,visit,,reduce
+كرواسون,bakery,piece,1,0.9,2.5,1,visit,16.0,reduce
+بيتزا,bakery,piece,1,1.2,3.0,1,visit,,reduce

@@ -1,0 +1,12 @@
+# internal team files: not public
+team-plan.md
+mikyal-spec.md
+*.pptx
+.claude/
+
+# stale screenshots for the slides (regenerate locally)
+engine/output/snap_*
+
+__pycache__/
+*.pyc
+.DS_Store

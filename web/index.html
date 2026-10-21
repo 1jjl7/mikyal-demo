@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>مكيال: طلبية الطازج</title>
+  <meta name="description" content="مكيال: كمية طلب مقترحة لكل صنف طازج حسب التقويم السعودي، مع سبب لكل رقم">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=20261021232343">
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">🧺</span>
+        <div>
+          <h1>مكيال</h1>
+          <p class="tagline">طلبية الطازج بالتقويم السعودي</p>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button role="tab" data-tab="order" aria-selected="true">طلبية بكرة</button>
+        <button role="tab" data-tab="compare" aria-selected="false">المقارنة</button>
+        <button role="tab" data-tab="balance" aria-selected="false">التوازن</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="sim-banner" class="banner" hidden>
+      ⚠ <b>بيانات محاكاة</b> مبنية على 3 زيارات ميدانية: تثبت أن الحساب يشتغل، ولا تثبت أثرًا حقيقيًا.
+    </div>
+
+    <!-- TAB 1: tomorrow's order -->
+    <section id="tab-order" class="tab" role="tabpanel">
+      <div class="day-head">
+        <div>
+          <h2 id="order-title">طلبية بكرة</h2>
+          <p class="muted" id="order-sub"></p>
+        </div>
+        <div class="seg" id="order-filter">
+          <button data-cat="all" class="on">الكل</button>
+          <button data-cat="produce">خضار وفواكه</button>
+          <button data-cat="bakery">مخبز</button>
+        </div>
+      </div>
+      <div id="alerts"></div>
+      <div id="order-list" class="cards"></div>
+      <div class="actions">
+        <button class="btn primary" id="copy-order">نسخ الطلبية كنص</button>
+        <button class="btn" id="download-order">تحميل الطلبية (CSV)</button>
+        <span class="muted small" id="copy-done" hidden>✓ انسخت</span>
+      </div>
+      <p class="note">الكمية النهائية قرار المدير. أي تعديل يُحفظ مع سببه في الملف المحمّل، وهذا اللي نقيس فيه أسابيع الظل.</p>
+    </section>
+
+    <!-- TAB 2: backtest -->
+    <section id="tab-compare" class="tab" role="tabpanel" hidden>
+      <div class="day-head">
+        <div>
+          <h2>الاختبار العكسي</h2>
+          <p class="muted" id="compare-sub"></p>
+        </div>
+        <div class="seg" id="compare-group">
+          <button data-group="ALL" class="on">الكل</button>
+          <button data-group="ALL:produce">خضار وفواكه</button>
+          <button data-group="ALL:bakery">مخبز</button>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="card">
+        <h3>الهدر والرف الفاضي لكل طريقة</h3>
+        <p class="muted small">% من الطلب الحقيقي، موزونة بتكلفة كل صنف عشان ما نجمع كيلو مع حبة.</p>
+        <div id="method-bars"></div>
+      </div>
+      <div class="card">
+        <h3>صنف صنف</h3>
+        <p class="muted small">بوحدة الصنف نفسه. الأقل أفضل.</p>
+        <div class="table-scroll"><table class="grid" id="item-table"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h3>الطلب الحقيقي مقابل التوقع</h3>
+          <div class="pickers">
+            <select id="chart-item" aria-label="الصنف"></select>
+            <select id="chart-window" aria-label="الفترة"></select>
+          </div>
+        </div>
+        <div id="line-chart"></div>
+        <div class="legend" id="line-legend"></div>
+      </div>
+      <div class="card">
+        <h3>خطأ التوقع (WAPE)</h3>
+        <div id="wape"></div>
+      </div>
+      <p class="note">كل طريقة تدير رفها: تطلب كل صباح بالبيانات اللي قبل اليوم بس، والقديم ينباع أول، واللي يخرب ينحسب هدر.
+        نقارن بطريقة المتجر الحالية (نموذج من كلام الموظفين) وبطريقتين بسيطتين، مو بطلبيات مدير حقيقي: هذا هدف أسابيع الظل.</p>
+    </section>
+
+    <!-- TAB 3: service level trade-off -->
+    <section id="tab-balance" class="tab" role="tabpanel" hidden>
+      <h2>المتجر يختار التوازن</h2>
+      <p class="muted">كل ما رفعنا «مستوى الخدمة» يقل الرف الفاضي ويزيد الهدر شوي. المتجر يختار، ومكيال يطلب على قده.</p>
+      <div class="card">
+        <div id="tradeoff-chart"></div>
+        <div class="legend">
+          <span><i class="dot mikyal"></i>مكيال بمستوى خدمة مختلف</span>
+          <span><i class="dot store"></i>طريقة المتجر الحالية</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-scroll"><table class="grid" id="tradeoff-table"></table></div>
+      </div>
+      <p class="note">الافتراضي 97%: اخترناه عشان يكون الرف الفاضي قريب من طريقة المتجر الحالية، فما نقلل الهدر على حساب الرف.
+        أصناف صلاحية اليوم الواحد (كرواسون، بيتزا) 85%، لأن الباقي منها ينرمي آخر الليل. الإعدادين افتراض يعدّله المتجر.</p>
+    </section>
+  </main>
+
+  <footer class="wrap foot muted small">
+    مكيال · هاكاثون الفقد والهدر الغذائي · التحدي 04 (بنده) · نموذج أولي على الويب
+  </footer>
+
+  <script src="data.js?v=20261021232343"></script>
+  <script src="app.js?v=20261021232343"></script>
+</body>
+</html>
