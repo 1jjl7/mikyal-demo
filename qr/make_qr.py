@@ -13,7 +13,7 @@ import qrcode
 import qrcode.image.svg
 
 HERE = Path(__file__).parent
-url = sys.argv[1] if len(sys.argv) > 1 else "https://mnabil-11.github.io/mikyal-demo/"
+url = sys.argv[1] if len(sys.argv) > 1 else "https://1jjl7.github.io/mikyal-demo/"
 
 q = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=24, border=4)
 q.add_data(url)
