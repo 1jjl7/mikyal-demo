@@ -179,7 +179,7 @@ i.shade-p { background: var(--promo); height: 10px; }
 @media (max-width: 640px) {
   .top .wrap { gap: 8px; }
   .tabs { width: 100%; }
-  .tabs button { flex: 1; padding: 7px 6px; }
+  .tabs button { flex: 1; padding: 7px 4px; white-space: nowrap; font-size: .9rem; }
   .item-row { flex-direction: column; }
   .final { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: center; }
   .final label { width: 100%; }
