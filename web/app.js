@@ -115,7 +115,7 @@
       Number(it.pack_size) > 1 ? `${PACK_AR[it.category] || "العبوة"} ${it.pack_size} ${u}` : ""].filter(Boolean).join(" · ");
     const zero = Number(r.recommended_qty) === 0;
     return `
-    <article class="item-card ${edited ? "edited" : ""}" data-item="${esc(r.item)}">
+    <article class="item-card ${edited ? "edited" : ""} ${r.alert ? "has-alert" : ""}" data-item="${esc(r.item)}">
       <div class="item-row">
         <div>
           <div class="item-name">${esc(r.item)}</div>
@@ -145,7 +145,28 @@
     </article>`;
   }
 
+  // promo factor = forecast / (baseline × calendar), same as in steps()
+  const promoOf = (r) => {
+    const b = Number(r.baseline_qty) * Number(r.calendar_factor);
+    return b > 0 ? Number(r.forecast_qty) / b : 1;
+  };
+
+  function renderSummary() {
+    const shown = rec.filter((r) => orderCat === "all" || catOf(r.item) === orderCat);
+    const ordered = shown.filter((r) => Number(final[r.item].qty) > 0).length;
+    const promo = shown.filter((r) => promoOf(r) > 1.01).length;
+    const onHand = shown.filter((r) => Number(r.qty_on_hand) > 0).length;
+    const alerts = shown.filter((r) => r.alert).length;
+    const tile = (n, label, cls = "") => `<div class="sum-tile ${cls}"><b>${n}</b><span>${label}</span></div>`;
+    $("#order-summary").innerHTML =
+      tile(`${ordered} من ${shown.length}`, "أصناف نطلبها") +
+      tile(promo, "عليها عرض بكرة") +
+      tile(onHand, "فيها موجود من أمس") +
+      tile(alerts, "تنبيه فائض", alerts ? "warn" : "");
+  }
+
   function renderOrder() {
+    renderSummary();
     const open = new Set($$("#order-list details[open]").map((d) => d.closest(".item-card").dataset.item));
     const shown = rec.filter((r) => orderCat === "all" || catOf(r.item) === orderCat);
     $("#order-list").innerHTML = shown.map(card).join("");
@@ -215,6 +236,92 @@
     a.download = `mikyal-order-${rec[0] ? rec[0].target_date : "today"}.csv`;
     document.body.appendChild(a); a.click(); a.remove();
   });
+
+  // ------------------------------------------------------------------ TAB: worker tasks
+  // Few, one-line tasks per shift (staff told us long lists get skipped).
+  let shift = "am";
+  const done = {};   // "produce-am" -> Set of finished task ids
+  const decision = {};   // surplus item -> manager's choice
+  const SURPLUS_OPTS = ["سعر أقل (لو المتجر يسمح)", "منصة بيع الفائض", "لا شي"];
+
+  // worker wording: "6 كراتين" / "3 عجنات" instead of the full kg breakdown
+  const PACK_N = { produce: ["كرتون", "كرتونين", "كراتين"], bakery: ["عجنة", "عجنتين", "عجنات"] };
+  function shortQty(r) {
+    const it = items[r.item] || {}, q = Number(final[r.item].qty), p = Number(it.pack_size);
+    const w = PACK_N[it.category];
+    if (!(p > 1 && q % p === 0 && w)) return `${num(q, r.unit)} ${unitAr(r.unit)}`;
+    const n = q / p;
+    return n === 1 ? w[0] : n === 2 ? w[1] : `${n} ${n <= 10 ? w[2] : w[0]}`;
+  }
+
+  // produce and bakery have different workers, so each gets its own list
+  let dept = "produce";
+  const DEPT_AR = { produce: "الخضار", bakery: "المخبز" };
+
+  function shiftTasks(d, s) {
+    const mine = rec.filter((r) => catOf(r.item) === d);
+    const ordered = mine.filter((r) => Number(final[r.item].qty) > 0).map((r) => `${r.item} ${shortQty(r)}`).join("، ");
+    const onHand = mine.filter((r) => Number(r.qty_on_hand) > 0).map((r) => r.item).join("، ");
+    const surplus = mine.filter((r) => r.alert).slice(0, 1)
+      .map((r) => [`sur-${r.item}`, `${r.item}: متوقع يبقى منه، بلّغ المدير`, ""]);
+    if (s === "am") {
+      return [
+        d === "produce" ? ["recv", "استلم طلبية الخضار", ordered] : ["bake", "اخبز حسب الطلبية", ordered],
+        ...(onHand ? [["front", "الصالح من أمس قدّام، والجديد ورا", onHand]] : []),
+        d === "produce" ? ["damaged", "شيل الحبات التالفة من الرف", ""] : ["expired", "شيل اللي انتهت صلاحيته من الرف", ""],
+        ...surplus,
+      ];
+    }
+    return [
+      d === "produce" ? ["refill", "عبّي الناقص من المستودع قبل الذروة", ""] : ["refill", "عبّي الرف من المخبوزات الجاهزة قبل الذروة", ""],
+      ["damaged-pm", d === "produce" ? "شيل الحبات التالفة من الرف" : "شيل اللي انتهت صلاحيته من الرف", ""],
+      ["count", "سجّل الباقي آخر الشفت", "يدخل في حساب طلبية بكرة"],
+    ];
+  }
+  const doneSet = (d, s) => (done[`${d}-${s}`] ||= new Set());
+
+  function renderTasks() {
+    const list = shiftTasks(dept, shift), set = doneSet(dept, shift);
+    $("#task-list").innerHTML = list.map(([id, title, sub]) => `
+      <label class="task ${set.has(id) ? "done" : ""}">
+        <input type="checkbox" data-id="${esc(id)}" ${set.has(id) ? "checked" : ""}>
+        <span><b>${esc(title)}</b>${sub ? `<span class="sub">${esc(sub)}</span>` : ""}</span>
+      </label>`).join("");
+    $("#task-progress").innerHTML = ["produce", "bakery"].flatMap((d) => ["am", "pm"].map((s) => {
+      const t = shiftTasks(d, s), k = t.filter(([id]) => doneSet(d, s).has(id)).length;
+      return `<div class="prog"><div class="prog-head"><span>${DEPT_AR[d]} · ${s === "am" ? "الصباحي" : "المسائي"}</span>
+        <b>${k} من ${t.length} تمت</b></div><div class="prog-bar"><div style="width:${t.length ? (k / t.length) * 100 : 0}%"></div></div></div>`;
+    })).join("");
+    const surplus = rec.filter((r) => r.alert);
+    $("#surplus-box").innerHTML = surplus.length ? surplus.map((r) => `
+      <div class="alert-card"><b>${esc(r.item)}:</b>${esc(r.alert)}
+        <select class="sur-pick" data-item="${esc(r.item)}" aria-label="قرار الفائض ${esc(r.item)}">
+          <option value="">قرار المدير…</option>
+          ${SURPLUS_OPTS.map((o) => `<option ${decision[r.item] === o ? "selected" : ""}>${o}</option>`).join("")}
+        </select></div>`).join("")
+      : `<p class="muted small">✓ ما فيه فائض متوقع في طلبية بكرة.</p>`;
+  }
+
+  $("#task-list").addEventListener("change", (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    const set = doneSet(dept, shift);
+    e.target.checked ? set.add(id) : set.delete(id);
+    renderTasks();
+  });
+  $("#surplus-box").addEventListener("change", (e) => {
+    if (e.target.matches(".sur-pick")) decision[e.target.dataset.item] = e.target.value;
+  });
+  $$("#shift-pick button").forEach((b) => b.addEventListener("click", () => {
+    shift = b.dataset.shift;
+    $$("#shift-pick button").forEach((x) => x.classList.toggle("on", x === b));
+    renderTasks();
+  }));
+  $$("#dept-pick button").forEach((b) => b.addEventListener("click", () => {
+    dept = b.dataset.dept;
+    $$("#dept-pick button").forEach((x) => x.classList.toggle("on", x === b));
+    renderTasks();
+  }));
 
   // ------------------------------------------------------------------ TAB 2: backtest
   let group = "ALL";
@@ -312,50 +419,46 @@
     return [1, 2, 2.5, 5, 10].map((k) => k * p).find((k) => k >= v) || v;
   }
 
+  // last 14 days only: actual demand as grey columns, Mikyal's forecast as one line on top
   function renderLine() {
     const item = $("#chart-item").value;
-    const w = windowsOf(item)[Number($("#chart-window").value) || 0] || [];
+    const w = (windowsOf(item)[Number($("#chart-window").value) || 0] || []).slice(-14);
     if (!w.length) { $("#line-chart").innerHTML = ""; return; }
     const W = chartW($("#line-chart")), H = 260, L = 40, R = 12, T = 12, B = 30;
-    const series = [
-      ["actual", "الطلب الحقيقي", "var(--ink)", ""],
-      ["pred_mikyal", "توقع مكيال", "var(--mikyal)", ""],
-      ["pred_last_week", "نفس اليوم الأسبوع الماضي", "var(--gray)", "4 3"],
-    ];
-    const ymax = niceMax(Math.max(...w.flatMap((r) => series.map(([k]) => Number(r[k]) || 0))) * 1.05);
-    const x = (i) => L + (i / Math.max(w.length - 1, 1)) * (W - L - R);
+    const ymax = niceMax(Math.max(...w.flatMap((r) => [Number(r.actual) || 0, Number(r.pred_mikyal) || 0])) * 1.05);
+    const step = (W - L - R) / w.length;
+    const x = (i) => L + step * (i + 0.5);
     const y = (v) => T + (1 - v / ymax) * (H - T - B);
-    const step = (W - L - R) / Math.max(w.length - 1, 1);
     let g = "";
     w.forEach((r, i) => {
-      if (r.event === "ramadan") g += `<rect x="${x(i) - step / 2}" y="${T}" width="${step}" height="${H - T - B}" fill="var(--shade)"/>`;
-      else if (Number(r.promo) === 1) g += `<rect x="${x(i) - step / 2}" y="${T}" width="${step}" height="${H - T - B}" fill="var(--promo)"/>`;
+      if (r.event === "ramadan") g += `<rect x="${L + step * i}" y="${T}" width="${step}" height="${H - T - B}" fill="var(--shade)"/>`;
+      else if (Number(r.promo) === 1) g += `<rect x="${L + step * i}" y="${T}" width="${step}" height="${H - T - B}" fill="var(--promo)"/>`;
     });
     for (let k = 0; k <= 4; k++) {
       const v = (ymax * k) / 4;
       g += `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/>` +
         `<text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${num(v, "kg")}</text>`;
     }
-    const every = W < 480 ? 14 : 7;
+    const bw = step * 0.6;
     w.forEach((r, i) => {
-      if (i % every === 0) {
+      const v = Number(r.actual) || 0;
+      g += `<rect x="${x(i) - bw / 2}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="2" fill="var(--gray2)"/>`;
+      if (i % 2 === 0) {
         const d = parseDay(r.date);
         g += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle">${d.getDate()}/${d.getMonth() + 1}</text>`;
       }
     });
-    g += series.map(([k, , color, dash]) => {
-      const pts = w.map((r, i) => `${x(i).toFixed(1)},${y(Number(r[k]) || 0).toFixed(1)}`).join(" ");
-      return `<polyline points="${pts}" fill="none" stroke="${color}" stroke-width="${k === "pred_mikyal" ? 2.5 : 1.6}" ${dash ? `stroke-dasharray="${dash}"` : ""} stroke-linejoin="round"/>`;
-    }).join("");
+    const pts = w.map((r, i) => `${x(i).toFixed(1)},${y(Number(r.pred_mikyal) || 0).toFixed(1)}`).join(" ");
+    g += `<polyline points="${pts}" fill="none" stroke="var(--mikyal)" stroke-width="2.5" stroke-linejoin="round"/>`;
+    g += w.map((r, i) => `<circle cx="${x(i)}" cy="${y(Number(r.pred_mikyal) || 0)}" r="3.5" fill="var(--mikyal)"/>`).join("");
     const unit = unitAr((w[0] || {}).unit);
     $("#line-chart").innerHTML =
-      `<svg class="chart" viewBox="0 0 ${W} ${H}" direction="ltr" role="img" aria-label="الطلب الحقيقي مقابل التوقع (${esc(unit)})">${g}</svg>`;
+      `<svg class="chart" viewBox="0 0 ${W} ${H}" direction="ltr" role="img" aria-label="الطلب الحقيقي مقابل توقع مكيال (${esc(unit)})">${g}</svg>`;
     $("#line-legend").innerHTML =
-      `<span><i class="actual"></i>الطلب الحقيقي</span><span><i class="mikyal"></i>توقع مكيال</span>` +
-      `<span><i class="lastweek"></i>نفس اليوم الأسبوع الماضي</span>` +
+      `<span><i class="bar-key"></i>الطلب الحقيقي</span><span><i class="mikyal"></i>توقع مكيال</span>` +
       (w.some((r) => r.event === "ramadan") ? `<span><i class="shade-r"></i>رمضان</span>` : "") +
       (w.some((r) => Number(r.promo) === 1) ? `<span><i class="shade-p"></i>يوم عرض</span>` : "") +
-      `<span>الوحدة: ${esc(unit)}</span>`;
+      `<span>آخر ${w.length} يوم · الوحدة: ${esc(unit)}</span>`;
   }
 
   function renderCompare() { renderStats(); renderBars(); renderItemTable(); renderWape(); }
@@ -407,9 +510,9 @@
   fillWindows();
   renderLine();
   renderTradeoff();
-  function showTabAndDraw(name) { showTab(name); renderLine(); renderTradeoff(); }   // hidden tabs have no width
-  showTabAndDraw(["order", "compare", "balance"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "order");
-  $$(".tabs button").forEach((b) => b.addEventListener("click", () => { renderLine(); renderTradeoff(); }));
+  function showTabAndDraw(name) { showTab(name); renderLine(); renderTradeoff(); renderTasks(); }   // hidden tabs have no width
+  showTabAndDraw(["order", "tasks", "compare", "balance"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "order");
+  $$(".tabs button").forEach((b) => b.addEventListener("click", () => { renderLine(); renderTradeoff(); renderTasks(); }));
   let resizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);

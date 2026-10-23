@@ -5,17 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>مكيال: طلبية الطازج</title>
   <meta name="description" content="مكيال: كمية طلب مقترحة لكل صنف طازج حسب التقويم السعودي، مع سبب لكل رقم">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧺</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><path d='M41 20C53 18 57 27 53 35C50 42 46 45 44 49' fill='none' stroke='%23a8642f' stroke-width='4' stroke-linecap='round'/><path d='M13 16L9.5 54Q27 57.5 44.5 54L41 16z' fill='%23b8743a'/><ellipse cx='27' cy='14.5' rx='15' ry='3.5' fill='%23e8b57a'/><path d='M12 25h30M10.6 45h33' stroke='%234a2a12' stroke-width='1.5'/></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20261021232343">
+  <link rel="stylesheet" href="style.css?v=20261023033626">
 </head>
 <body>
   <header class="top">
     <div class="wrap">
       <div class="brand">
-        <span class="logo" aria-hidden="true">🧺</span>
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="lg-body" x1="0" x2="1"><stop offset="0" stop-color="#6b3f1d"/><stop offset=".3" stop-color="#c98a4b"/><stop offset=".5" stop-color="#e8b57a"/><stop offset=".75" stop-color="#a8642f"/><stop offset="1" stop-color="#5a3216"/></linearGradient>
+            <linearGradient id="lg-rim" x1="0" x2="1"><stop offset="0" stop-color="#7a4822"/><stop offset=".5" stop-color="#f0c48e"/><stop offset="1" stop-color="#6b3f1d"/></linearGradient>
+          </defs>
+          <path d="M41 20 C53 18 57 27 53 35 C50 42 46 45 44 49 C43 52 46 53 47 51" fill="none" stroke="#a8642f" stroke-width="3" stroke-linecap="round"/>
+          <path d="M13 16 L9.5 54 Q27 57.5 44.5 54 L41 16z" fill="url(#lg-body)"/>
+          <ellipse cx="27" cy="14.5" rx="15" ry="3" fill="url(#lg-rim)"/>
+          <ellipse cx="27" cy="14.5" rx="12.6" ry="2" fill="#3b2412"/>
+          <g stroke="#4a2a12" stroke-width=".6" fill="none" opacity=".8">
+            <path d="M12.2 24h29.6M11.9 26.5h30.2M10.7 44h32.6M10.5 46.5h33"/>
+            <path d="M14 31q2-2 4 0t4 0t4 0t4 0t4 0t4 0M14 36q2 2 4 0t4 0t4 0t4 0t4 0t4 0M13 40q2-2 4 0t4 0t4 0t4 0t4 0t4 0M12 50q2-2 4 0t4 0t4 0t4 0t4 0t4 0t4 0"/>
+          </g>
+        </svg>
         <div>
           <h1>مكيال</h1>
           <p class="tagline">طلبية الطازج بالتقويم السعودي</p>
@@ -23,6 +36,7 @@
       </div>
       <nav class="tabs" role="tablist">
         <button role="tab" data-tab="order" aria-selected="true">طلبية بكرة</button>
+        <button role="tab" data-tab="tasks" aria-selected="false">مهام الموظف</button>
         <button role="tab" data-tab="compare" aria-selected="false">المقارنة</button>
         <button role="tab" data-tab="balance" aria-selected="false">التوازن</button>
       </nav>
@@ -47,6 +61,7 @@
           <button data-cat="bakery">مخبز</button>
         </div>
       </div>
+      <div id="order-summary" class="summary"></div>
       <div id="alerts"></div>
       <div id="order-list" class="cards"></div>
       <div class="actions">
@@ -55,6 +70,39 @@
         <span class="muted small" id="copy-done" hidden>✓ انسخت</span>
       </div>
       <p class="note">الكمية النهائية قرار المدير. أي تعديل يُحفظ مع سببه في الملف المحمّل، وهذا اللي نقيس فيه أسابيع الظل.</p>
+    </section>
+
+    <!-- TAB: worker tasks (one short list per shift, manager sees progress) -->
+    <section id="tab-tasks" class="tab" role="tabpanel" hidden>
+      <div class="day-head">
+        <div>
+          <h2>مهام الموظف</h2>
+          <p class="muted">قائمة قصيرة لكل شفت من طلبية مكيال. الموظف يحط صح، والمدير يشوف وش انتهى.</p>
+        </div>
+        <div class="pick-row">
+        <div class="seg" id="dept-pick">
+          <button data-dept="produce" class="on">موظف الخضار</button>
+          <button data-dept="bakery">موظف المخبز</button>
+        </div>
+        <div class="seg" id="shift-pick">
+          <button data-shift="am" class="on">الشفت الصباحي</button>
+          <button data-shift="pm">الشفت المسائي</button>
+        </div>
+        </div>
+      </div>
+      <div class="task-grid">
+        <div class="card">
+          <h3>شاشة الموظف <span class="muted small">(جوال أو جهاز لوحي في القسم)</span></h3>
+          <div id="task-list"></div>
+        </div>
+        <div class="card">
+          <h3>شاشة المدير</h3>
+          <div id="task-progress"></div>
+          <h3 style="margin-top:14px">الفائض المتوقع</h3>
+          <div id="surplus-box"></div>
+        </div>
+      </div>
+      <p class="note">المهام تطلع من طلبية بكرة نفسها: الكمية، والموجود من اليوم السابق، وتنبيه الفائض. قرار السعر أو منصة الفائض للمدير حسب سياسة متجره.</p>
     </section>
 
     <!-- TAB 2: backtest -->
@@ -123,7 +171,7 @@
     مكيال · هاكاثون الفقد والهدر الغذائي · التحدي 04 (بنده) · نموذج أولي على الويب
   </footer>
 
-  <script src="data.js?v=20261021232343"></script>
-  <script src="app.js?v=20261021232343"></script>
+  <script src="data.js?v=20261023033626"></script>
+  <script src="app.js?v=20261023033626"></script>
 </body>
 </html>
